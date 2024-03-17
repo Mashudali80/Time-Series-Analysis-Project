@@ -1,0 +1,81 @@
+---
+title: "Time Series Analysis"
+subtitle: "Road Casualities in Great Britain"
+author: "Mashudali Moinuddin"
+date: "March 2024"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Brief Overview and some R
+UKDriverDeaths is a time series giving the monthly totals of car drivers in Great Britain killed or seriously injured Jan 1969 to Dec 1984. They later introduced the same data with multiple time series in which was called Seatbelts. In this time series analysis we will only be focusing on original UKDriverDeaths data set.
+```{r}
+UKDriverDeaths #dataset
+head(UKDriverDeaths) # This will display first few samples
+time(UKDriverDeaths) #This will display times of the data
+class(UKDriverDeaths) # data class should be time series
+plot(UKDriverDeaths)  #plot of the graph
+```
+
+The plot of the graph tells us that there is no consistent or clear trend. There is fluctuations in the total number of casualties over the year. and towards the end it was a sudden huge drop this might be possible because of the compulsory wearing of seat belt law introduced on 31 January 1983 this have been visible from the graph.
+
+### Detrending
+```{r}
+plot(diff(UKDriverDeaths)) #plot of the differences to detrend the data if there is any
+plot(diff(UKDriverDeaths,differences = 2)) #plot of the 2 differences to detrend the data if there is any
+```
+when we plot difference graph it shows that difference of 2 is much more noisier than the normal difference one.But overall shape of all the graph is similar. This two plots de-trends the data if there is any.
+
+### Meta's Prophet forecasting system
+```{r}
+library(prophet) #Loading the prophet library
+UKDriverDeaths.df = data.frame(
+  ds=zoo::as.yearmon(time(UKDriverDeaths)), 
+  y=UKDriverDeaths) #creating data frame for our original UKDriverDeaths data set which we will use to do prediction
+modelD = prophet(UKDriverDeaths.df)#fit the prophet model to our data 
+future = make_future_dataframe(modelD, periods=24, freq="quarter") #creating the future data frame for time steps of 24 and frequency of quarterly
+tail(future) #last few values of date of predictions
+predictions = predict(modelD, future) #Generate future Predictions 
+tail(predictions[c('ds','yhat','yhat_lower','yhat_upper')])#last few values which will include prediction with the lower and upper limit
+plot(modelD,predictions) #Plot the prophet model and predicted values
+```
+
+The black dots are the actual values from our data until end of 1985 and blue lines are the entire predictions from the start and the shaded blue region we get is the upper bound and lower bound of our predicted values (y_hat).
+
+
+
+```{r}
+prophet_plot_components(modelD,predictions)# Plot the components of the Prophet model separately such as yearly seasonality and trend.
+```
+
+The forecasting has been shown in  two steps now first we have trend which shows that from 1973 to 1984 there has been clear decreasing trend. Then we have interval for which our predicted values will fall. Initially this interval was close to the line but later the predicted confidence interval increases as well.
+
+The yearly seasonality chart we see that it peaks around end of summer and during October to December we see high values again. Also during Feb it peaks and in March and May it drop to its lowest. 
+
+### Exponential smoothing and Holt-method
+```{r}
+modelexp= HoltWinters(UKDriverDeaths,beta= FALSE,gamma = FALSE)#Exponential smoothing to the model
+plot(modelexp)#plotting the exponential model
+modelexp
+residexp= UKDriverDeaths - modelexp$fitted[,1] #Residual of exponential  
+plot(residexp) #Residual plots of the Exponential model with original data
+```
+Since exponential smoothing model averages the past values hence our prediction (red line) will always be going to below the black line.
+This is a good residual since it is fluctuating between -600 to 400 and more around 0.
+
+```{r}
+HoltM= HoltWinters(UKDriverDeaths,gamma= FALSE)#HoltMethod
+plot(HoltM)#plotting the Holt-method
+HoltM
+
+residHolt= UKDriverDeaths - HoltM$fitted[,1]#Residual plots of the Holt method model with original data
+plot(residHolt) #HoltM-residual plot
+```
+
+Our prediction (red line) is closer to black line in this method since our alpha value (0.960) has gone closer to 1 compared to exponential smoothing(alpha =0.9012).
+This is a good residual as well since it is fluctuating between 400 to -600 and more around 0 but there seems to be decreasing trend in them as one tends to be lower than before as we move from left to right.
+
